@@ -301,6 +301,7 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-DeskPilot-Device-Token")
+        self.send_header("Access-Control-Expose-Headers", "X-Screen-Width, X-Screen-Height, X-Captured-At, Content-Length, Content-Type")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)
@@ -310,24 +311,49 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-DeskPilot-Device-Token")
+        self.send_header("Access-Control-Expose-Headers", "X-Screen-Width, X-Screen-Height, X-Captured-At, Content-Length, Content-Type")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
 
     def is_local_request(self):
+        # Cloudflare Tunnel and reverse proxies forward external requests with CF/X-Forwarded headers
+        if self.headers.get("CF-Connecting-IP") or self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-For"):
+            return False
         client_ip = self.client_address[0]
         return client_ip in ("127.0.0.1", "::1", "localhost")
 
-    def check_phone_auth(self, config):
-        """Checks smartphone device token authentication."""
+    def check_phone_auth(self, config, query_params=None):
+        """Checks smartphone device token authentication across headers, query parameters, cookies, and active pairing."""
         if self.is_local_request():
             return True, {"name": "Local Desktop"}
 
-        # Token from header
+        # 1. Header: X-DeskPilot-Device-Token
         token = self.headers.get("X-DeskPilot-Device-Token")
         if not token:
             auth_hdr = self.headers.get("Authorization", "")
             if auth_hdr.startswith("Bearer "):
                 token = auth_hdr.split(" ", 1)[1].strip()
+
+        # 2. Query parameter: ?token=...
+        if not token and query_params:
+            token = query_params.get("token", [""])[0]
+
+        # 3. Cookie: deskpilot_device_token=...
+        if not token:
+            cookie_hdr = self.headers.get("Cookie", "")
+            for item in cookie_hdr.split(";"):
+                item = item.strip()
+                if item.startswith("deskpilot_device_token="):
+                    token = item.split("=", 1)[1].strip()
+                    break
+
+        # 4. Check active pairing code (?pair=888474) for initial setup requests
+        if not token and query_params:
+            pair_code = query_params.get("pair", [""])[0]
+            if pair_code:
+                valid, _ = auth.verify_pairing_code(pair_code)
+                if valid:
+                    return True, {"name": "스마트폰(페어링승인중)"}
 
         ok, dev = auth.verify_phone_token(config, token)
         return ok, dev
@@ -482,12 +508,27 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
         # 10-2. Live Computer Screen Shot API
         elif path == "/api/screen/shot":
             if not self.is_local_request():
-                auth_ok, _ = self.check_phone_auth(cfg)
+                auth_ok, _ = self.check_phone_auth(cfg, query)
                 if not auth_ok:
                     self.send_json({"success": False, "message": "스마트폰 인증이 필요합니다."}, 401)
                     return
 
-            shot_res = screen_viewer.capture_screen_jpeg(quality=75, max_width=1280)
+            # Dynamic quality and resolution scaling for low latency / mobile networks
+            q_val = 70
+            try:
+                if "q" in query:
+                    q_val = max(30, min(95, int(query["q"][0])))
+            except Exception:
+                pass
+
+            w_val = 1080
+            try:
+                if "w" in query:
+                    w_val = max(480, min(1920, int(query["w"][0])))
+            except Exception:
+                pass
+
+            shot_res = screen_viewer.capture_screen_jpeg(quality=q_val, max_width=w_val)
             if shot_res["success"] and shot_res["bytes"]:
                 self.send_response(200)
                 self.send_header("Content-Type", "image/jpeg")
@@ -497,16 +538,50 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
                 self.send_header("X-Captured-At", shot_res["captured_at"])
                 self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Expose-Headers", "X-Screen-Width, X-Screen-Height, X-Captured-At, Content-Length, Content-Type")
                 self.end_headers()
                 self.wfile.write(shot_res["bytes"])
             else:
                 self.send_json({"success": False, "error": shot_res.get("error", "화면 캡처 실패")}, 500)
             return
 
+        # 10-2-1. Real-time MJPEG Screen Stream API (Ultra-low latency live video feed)
+        elif path == "/api/screen/stream":
+            if not self.is_local_request():
+                auth_ok, _ = self.check_phone_auth(cfg, query)
+                if not auth_ok:
+                    self.send_json({"success": False, "message": "스마트폰 인증이 필요합니다."}, 401)
+                    return
+
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            # Stream real-time desktop frames
+            start_time = time.time()
+            try:
+                while time.time() - start_time < 300:  # 5-minute stream session
+                    shot = screen_viewer.capture_screen_jpeg(quality=60, max_width=960)
+                    if shot["success"] and shot["bytes"]:
+                        part_header = (
+                            b"--frame\r\n"
+                            b"Content-Type: image/jpeg\r\n"
+                            b"Content-Length: " + str(len(shot["bytes"])).encode("ascii") + b"\r\n\r\n"
+                        )
+                        self.wfile.write(part_header)
+                        self.wfile.write(shot["bytes"])
+                        self.wfile.write(b"\r\n")
+                    time.sleep(0.08)  # ~12 FPS real-time
+            except (ConnectionResetError, BrokenPipeError, Exception):
+                pass
+            return
+
         # 10-3. Active Windows / Screens List API
         elif path == "/api/screen/windows":
             if not self.is_local_request():
-                auth_ok, _ = self.check_phone_auth(cfg)
+                auth_ok, _ = self.check_phone_auth(cfg, query)
                 if not auth_ok:
                     self.send_json({"success": False, "message": "스마트폰 인증이 필요합니다."}, 401)
                     return

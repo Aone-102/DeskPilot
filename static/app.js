@@ -117,6 +117,9 @@ function switchTab(tabId) {
   } else if (tabId === 'screen') {
     refreshScreenShot();
     fetchActiveWindows();
+    if (state.screenLiveActive) {
+      runAdaptiveScreenLiveLoop();
+    }
   }
 }
 
@@ -854,6 +857,10 @@ async function fetchStatus() {
     if (hostEl) hostEl.innerText = data.hostname || 'PC';
     const mobileHostEl = document.getElementById('mobileHostName');
     if (mobileHostEl) mobileHostEl.innerText = `${data.hostname} 연동됨`;
+    const quickCardHost = document.getElementById('quickCardHostName');
+    if (quickCardHost) quickCardHost.innerText = data.hostname || '내 컴퓨터';
+    const settingsHostDesc = document.getElementById('settingsHostDesc');
+    if (settingsHostDesc) settingsHostDesc.innerText = `${data.hostname || '내 컴퓨터'}의 실시간 화면과 작업 현황을 확인합니다.`;
 
     const phoneCount = data.phone_connected_count || 0;
     const phoneBadge = document.getElementById('headerPhoneBadge');
@@ -1315,20 +1322,39 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// --- Remote PC Screen & Active Windows Monitor ---
-let screenAutoRefreshTimer = null;
+// --- Remote PC Screen & Active Windows Monitor (Real-time Adaptive Streaming) ---
 let lastScreenBlobUrl = null;
+let screenLiveLoopRunning = false;
 
-async function refreshScreenShot() {
+function getAuthQuery() {
+  return state.deviceToken ? `&token=${encodeURIComponent(state.deviceToken)}` : '';
+}
+
+function changeScreenQuality() {
+  const select = document.getElementById('screenQualitySelect');
+  if (select) {
+    state.screenQuality = select.value || 'fast';
+    refreshScreenShot(true);
+  }
+}
+
+async function refreshScreenShot(silent = false) {
   const spinner = document.getElementById('screenLoadingSpinner');
-  if (spinner) spinner.classList.remove('hidden');
+  if (!silent && spinner) spinner.classList.remove('hidden');
 
   const btn = document.getElementById('btnRefreshScreen');
-  if (btn) btn.classList.add('opacity-75');
+  if (!silent && btn) btn.classList.add('opacity-75');
+
+  const qualityMode = state.screenQuality || 'fast';
+  const qVal = qualityMode === 'hd' ? 75 : 60;
+  const wVal = qualityMode === 'hd' ? 1280 : 960;
+
+  const startTime = performance.now();
 
   try {
-    const res = await apiFetch('/api/screen/shot?t=' + Date.now());
-    if (!res.ok) throw new Error('화면 캡처 실패');
+    const url = `/api/screen/shot?t=${Date.now()}&q=${qVal}&w=${wVal}${getAuthQuery()}`;
+    const res = await apiFetch(url);
+    if (!res.ok) throw new Error('화면 캡처 응답 오류 (' + res.status + ')');
 
     const width = res.headers.get('X-Screen-Width') || '1920';
     const height = res.headers.get('X-Screen-Height') || '1080';
@@ -1359,9 +1385,15 @@ async function refreshScreenShot() {
     const modalTime = document.getElementById('modalScreenTime');
     if (modalTime) modalTime.innerText = `(${width}x${height} / ${capTime})`;
 
+    const rtt = Math.round(performance.now() - startTime);
+    return { success: true, rtt };
+
   } catch (err) {
     console.error('refreshScreenShot error:', err);
-    showToast('컴퓨터 화면을 불러오지 못했습니다.', 'error');
+    if (!silent) {
+      showToast('컴퓨터 화면을 불러오지 못했습니다. 연동 상태를 확인해 주세요.', 'error');
+    }
+    return { success: false, rtt: 0 };
   } finally {
     if (spinner) spinner.classList.add('hidden');
     if (btn) btn.classList.remove('opacity-75');
@@ -1378,26 +1410,47 @@ function onScreenImageError() {
   if (spinner) spinner.classList.add('hidden');
 }
 
+async function runAdaptiveScreenLiveLoop() {
+  if (screenLiveLoopRunning) return;
+  screenLiveLoopRunning = true;
+
+  const fpsBadge = document.getElementById('screenFpsBadge');
+  const liveBadge = document.getElementById('screenLiveBadge');
+
+  if (liveBadge) liveBadge.classList.remove('hidden');
+  if (fpsBadge) fpsBadge.classList.remove('hidden');
+
+  while (state.screenLiveActive && state.activeTab === 'screen' && !document.hidden) {
+    const { success, rtt } = await refreshScreenShot(true);
+    if (fpsBadge && success) {
+      fpsBadge.innerText = `⚡ LIVE (${rtt}ms)`;
+    }
+
+    // Adaptive minimal pacing: RTT is naturally rate-limiting; short pause prevents CPU spike
+    const pauseMs = (state.screenQuality === 'hd') ? 120 : 60;
+    await new Promise(resolve => setTimeout(resolve, pauseMs));
+  }
+
+  screenLiveLoopRunning = false;
+  if (!state.screenLiveActive) {
+    if (liveBadge) liveBadge.classList.add('hidden');
+    if (fpsBadge) fpsBadge.classList.add('hidden');
+  }
+}
+
 function toggleScreenAutoRefresh() {
   const checkbox = document.getElementById('screenAutoRefreshToggle');
   const liveBadge = document.getElementById('screenLiveBadge');
+  const fpsBadge = document.getElementById('screenFpsBadge');
   
   if (checkbox && checkbox.checked) {
+    state.screenLiveActive = true;
     if (liveBadge) liveBadge.classList.remove('hidden');
-    if (!screenAutoRefreshTimer) {
-      refreshScreenShot();
-      screenAutoRefreshTimer = setInterval(() => {
-        if (state.activeTab === 'screen' && !document.hidden) {
-          refreshScreenShot();
-        }
-      }, 3000);
-    }
+    runAdaptiveScreenLiveLoop();
   } else {
+    state.screenLiveActive = false;
     if (liveBadge) liveBadge.classList.add('hidden');
-    if (screenAutoRefreshTimer) {
-      clearInterval(screenAutoRefreshTimer);
-      screenAutoRefreshTimer = null;
-    }
+    if (fpsBadge) fpsBadge.classList.add('hidden');
   }
 }
 
@@ -1419,12 +1472,21 @@ function closeScreenFullscreen() {
 
 async function fetchActiveWindows() {
   try {
-    const res = await apiFetch('/api/screen/windows');
+    const res = await apiFetch(`/api/screen/windows?t=${Date.now()}${getAuthQuery()}`);
     const data = await res.json();
     renderActiveWindows(data.windows || []);
   } catch (err) {
     console.error('fetchActiveWindows error:', err);
   }
+}
+
+function copyWindowName(title) {
+  if (!title) return;
+  navigator.clipboard.writeText(title).then(() => {
+    showToast(`창 제목 '${title}'을(를) 복사했습니다!`, 'success');
+  }).catch(() => {
+    showToast('창 제목 복사 완료', 'info');
+  });
 }
 
 function renderActiveWindows(windows) {
@@ -1468,13 +1530,13 @@ function renderActiveWindows(windows) {
     }
 
     return `
-      <div class="p-3 bg-slate-900/60 hover:bg-slate-900/90 border border-slate-700/60 rounded-xl flex items-center justify-between gap-2.5 transition-all">
+      <div onclick="copyWindowName('${escapeHtml(w.title)}')" class="p-3 bg-slate-900/60 hover:bg-slate-900/90 active:scale-98 border border-slate-700/60 hover:border-indigo-500/50 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer group" title="클릭하여 창 제목 복사">
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
-          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 group-hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0 transition-colors">
             <i data-lucide="${icon}" class="w-4 h-4"></i>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-xs font-semibold text-slate-200 truncate" title="${escapeHtml(w.title)}">
+            <div class="text-xs font-semibold text-slate-200 truncate group-hover:text-white transition-colors" title="${escapeHtml(w.title)}">
               ${escapeHtml(w.title)}
             </div>
             <div class="flex items-center gap-2 mt-0.5">
@@ -1483,7 +1545,10 @@ function renderActiveWindows(windows) {
             </div>
           </div>
         </div>
-        <span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">실행 중</span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">실행 중</span>
+          <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+        </div>
       </div>
     `;
   }).join('');
@@ -1562,5 +1627,8 @@ window.addEventListener('focus', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     performAutoSync();
+    if (state.activeTab === 'screen' && state.screenLiveActive) {
+      runAdaptiveScreenLiveLoop();
+    }
   }
 });

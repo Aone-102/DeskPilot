@@ -24,10 +24,11 @@ def _attach_desktop():
         pass
 
 
-def capture_screen_jpeg(quality=75, max_width=1280):
+def capture_screen_jpeg(quality=70, max_width=1080):
     """
     Captures the primary monitor screen and returns JPEG bytes and metadata.
     Resizes proportionally if max_width is provided to optimize mobile/remote transmission.
+    Default max_width 1080, quality 70 for super-fast live transmission over external networks.
     """
     _attach_desktop()
     try:
@@ -41,7 +42,7 @@ def capture_screen_jpeg(quality=75, max_width=1280):
             img = img.resize((max_width, new_h))
 
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=quality)
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
         jpeg_bytes = buf.getvalue()
 
         return {
