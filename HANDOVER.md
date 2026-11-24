@@ -49,6 +49,8 @@ c:\Users\cheon\Desktop\임시 만들거\
 ├── start.bat             # 수동 콘솔 실행 배치 파일
 ├── run.vbs               # 콘솔 창 없는 무음 백그라운드 실행기
 ├── build_exe.bat         # PyInstaller 기반 독립 실행 파일(.exe) 배포 빌더
+├── installer.py          # 원클릭 자동 설치 프로그램(Tkinter Setup GUI, 바로가기/레지스트리 등록)
+├── build_installer.bat   # 단일 자동 설치 파일(DeskPilot-Setup.exe) 빌드 스크립트
 ├── .gitignore            # Git/GitHub 업로드 시 제외할 임시 파일 및 캐시 목록 정의
 ├── README.md             # 사용자용 기능 설명, 아키텍처, 실행 및 GitHub 배포 가이드
 ├── HANDOVER.md           # 개발 현황 및 인수인계 문서
@@ -92,5 +94,8 @@ c:\Users\cheon\Desktop\임시 만들거\
    * `build_exe.bat`으로 빌드한 실행 파일을 GitHub Releases 탭에 업로드하면 다른 사용자가 파이썬 설치 없이도 즉시 다운로드하여 사용 가능.
 2. **외부 네트워크 터널 UX 고도화:**
    * `tunnel.py`가 백엔드에 통합되어 있으므로, PC 설정 화면에서 "외부 접속(LTE/5G) 켜기" 스위치를 켜면 `tunnel.start_tunnel()`이 동작하고 QR 코드가 자동으로 HTTPS 터널 URL로 전환되도록 연결되어 있습니다.
-3. **Inno Setup 설치 파일 패키징 (PRD 4장):**
-   * 현재 `build_exe.bat`으로 `--onedir` 빌드가 가능합니다. 배포 편의를 위해 Inno Setup 스크립트(`.iss`)를 추가하면 `DeskPilot-Setup.exe` 단일 설치 파일로 만들 수 있습니다.
+3. **원클릭 자동 설치 프로그램 구축 완료 (`DeskPilot-Setup.exe`):**
+   * `installer.py` 및 `build_installer.bat` 개발 및 빌드 검증 완료 (`dist\DeskPilot-Setup.exe`).
+   * 사용자가 더블클릭 시 별도 파이썬 설치나 UAC 관리자 권한 없이 `%LOCALAPPDATA%\Programs\DeskPilot`에 자동 설치.
+   * 바탕화면 바로가기, 시작 메뉴 등록, 윈도우 부팅 자동실행, Windows 프로그램 추가/제거 레지스트리 등록 및 원클릭 `uninstall.bat` 완벽 지원.
+   * GitHub Releases 탭에 이 단일 파일만 업로드하여 누구나 쉽게 다운로드 및 설치 가능.

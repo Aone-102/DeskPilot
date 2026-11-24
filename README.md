@@ -87,6 +87,8 @@ DeskPilot/
 │   ├── app.js          # 클라이언트 상태 관리, 실시간 수시 동기화(Auto-Sync Engine), 파일 드롭 처리
 │   └── style.css       # 테마, 스크롤바, 카드 효과 커스텀 스타일
 │
+├── installer.py        # 원클릭 자동 설치 프로그램(Setup GUI & 바로가기/레지스트리 등록 엔진)
+├── build_installer.bat # 단일 자동 설치 파일(DeskPilot-Setup.exe) 원클릭 빌드 스크립트
 ├── build_exe.bat       # 파이썬 없이 더블클릭만으로 실행 가능한 독립 실행 파일(.exe) 빌드 스크립트
 ├── start.bat           # 일반 콘솔 실행용 배치 파일
 ├── run.vbs             # 윈도우 부팅 시 검은 창 없이 백그라운드로 자동 실행하기 위한 VBScript
@@ -146,10 +148,21 @@ DeskPilot/
 ### 2. 윈도우 부팅 시 자동 실행 설정
 - 대시보드 우측 상단의 **[부팅 자동실행]** 토글 스위치(또는 [설정] 탭)를 켜기만 하면, 윈도우 시작프로그램에 등록되어 컴퓨터 부팅 시 자동으로 백그라운드 실행됩니다.
 
-### 3. 독립 실행형 프로그램(.exe) 배포 빌드
-- 파이썬이 설치되어 있지 않은 다른 컴퓨터에서도 DeskPilot을 실행하고 싶다면:
-  - 폴더 내 [build_exe.bat](file:///c:/Users/cheon/Desktop/임시%20만들거/build_exe.bat)을 더블클릭하여 실행합니다.
-  - `dist\DeskPilot\DeskPilot.exe` 독립 실행 파일이 생성되어 USB로 옮기거나 배포하여 바로 더블클릭으로 사용할 수 있습니다.
+### 3. 원클릭 자동 설치 프로그램 (.exe) 생성 및 배포
+다른 사람에게 공유하거나 다른 컴퓨터에 설치할 때 **더블클릭만 하면 자동으로 PC에 설치되는 단일 설치 파일**을 만들 수 있습니다:
+
+1. 폴더 내 [build_installer.bat](file:///c:/Users/cheon/Desktop/임시%20만들거/build_installer.bat)을 더블클릭합니다.
+2. `dist\DeskPilot-Setup.exe` 단일 설치 파일이 생성됩니다.
+3. 이 `DeskPilot-Setup.exe` 파일을 열면:
+   - 별도의 파이썬 설치 없이, 관리자 권한(UAC) 요청 없이 `%LOCALAPPDATA%\Programs\DeskPilot`에 자동 설치됩니다.
+   - 바탕화면과 시작 메뉴에 **DeskPilot 바로가기 아이콘**이 자동 생성됩니다.
+   - 윈도우 부팅 시 백그라운드 자동 실행이 등록됩니다.
+   - 설치 완료 즉시 DeskPilot이 자동 실행되며 웹 대시보드가 뜹니다.
+   - 윈도우 [설정 > 앱 > 설치된 앱]에 정식 프로그램으로 등록되며, 언제든 `uninstall.bat`으로 깔끔하게 삭제할 수 있습니다.
+
+### 4. 독립 실행형 포터블 바이너리 (.exe) 배포 빌드
+- 설치 과정 없이 무설치 압축 폴더 형태로 바로 실행하게 하고 싶다면:
+  - [build_exe.bat](file:///c:/Users/cheon/Desktop/임시%20만들거/build_exe.bat)을 실행하여 생성된 `dist\DeskPilot\` 폴더를 압축해서 공유하시면 됩니다.
 
 ---
 
