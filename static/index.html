@@ -831,8 +831,11 @@
 
       <!-- Pairing Code & Direct URL -->
       <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-700/60 text-xs space-y-1">
-        <div class="text-slate-400">스마트폰 직접 접속 주소:</div>
-        <div id="pairingUrlText" class="font-mono text-indigo-300 font-semibold select-all break-all">http://...</div>
+        <div class="flex items-center justify-between text-slate-400">
+          <span>스마트폰 직접 접속 주소:</span>
+          <span id="qrPcIdBadge" class="text-[10px] font-mono text-indigo-300 bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/20">PC ID: -</span>
+        </div>
+        <div id="pairingUrlText" class="font-mono text-indigo-300 font-semibold select-all break-all text-[11px]">http://...</div>
         <div class="text-slate-400 pt-1">인증 코드: <span id="pairingCodeText" class="text-amber-400 font-mono font-bold text-sm">------</span></div>
       </div>
 
@@ -860,9 +863,12 @@
 
       <div class="bg-slate-900/80 border border-slate-700 rounded-2xl p-4 text-left space-y-2">
         <div class="text-xs text-slate-400">연결 대상 컴퓨터:</div>
-        <div class="text-base font-bold text-indigo-300 flex items-center gap-2">
-          <i data-lucide="laptop" class="w-4 h-4 text-indigo-400"></i>
-          <span id="confirmHostName">DESKTOP-PC</span>
+        <div class="text-base font-bold text-indigo-300 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="laptop" class="w-4 h-4 text-indigo-400"></i>
+            <span id="confirmHostName">DESKTOP-PC</span>
+          </div>
+          <span id="confirmServerId" class="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">dp_xxxx</span>
         </div>
         <div id="confirmIpAddress" class="text-xs text-slate-400 font-mono">IP: 192.168.0.x</div>
       </div>

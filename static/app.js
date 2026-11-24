@@ -671,6 +671,10 @@ async function openPhoneModal() {
     const data = await res.json();
     document.getElementById('pairingUrlText').innerText = data.pairing_url;
     document.getElementById('pairingCodeText').innerText = data.pairing_code;
+    const pcIdBadge = document.getElementById('qrPcIdBadge');
+    if (pcIdBadge && data.server_id) {
+      pcIdBadge.innerText = 'PC ID: ' + data.server_id;
+    }
     
     // Fetch live vector SVG QR code
     document.getElementById('qrCodeContainer').innerHTML = `<img src="/api/phone/qr.svg?t=${Date.now()}" alt="QR" class="w-48 h-48">`;
@@ -757,20 +761,46 @@ function closePhoneModal() {
   fetchStatus();
 }
 
-// Mobile Side: Check query parameter `?pair=XXXXXX`
+// Mobile Side: Check query parameter `?pair=XXXXXX&sid=dp_xxxx&pc=NAME`
 async function checkMobilePairingPrompt() {
   const params = new URLSearchParams(window.location.search);
   const pairCode = params.get('pair');
+  const serverId = params.get('sid');
+  const pcParam = params.get('pc');
   
   if (pairCode) {
-    // If device is already paired with token, ignore or verify
+    window.__activePairCode = pairCode;
+    window.__activeServerId = serverId;
+
+    // If this specific PC server is already paired on this smartphone, reuse its distinct token
+    if (serverId && localStorage.getItem('deskpilot_token_' + serverId)) {
+      state.deviceToken = localStorage.getItem('deskpilot_token_' + serverId);
+      localStorage.setItem('deskpilot_device_token', state.deviceToken);
+      localStorage.setItem('deskpilot_current_server_id', serverId);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      showToast('이전에 연동된 컴퓨터에 자동 연결되었습니다!', 'success');
+      fetchTasks();
+      fetchNotes();
+      fetchStatus();
+      return;
+    }
+
     try {
       const res = await fetch('/api/status');
       const data = await res.json();
-      document.getElementById('confirmHostName').innerText = data.hostname || '사용자의 PC';
-      document.getElementById('confirmIpAddress').innerText = `IP: ${data.lan_ip}`;
+      const hostName = (pcParam ? decodeURIComponent(pcParam) : '') || data.hostname || '사용자의 PC';
+      const sidDisplay = serverId || data.server_id || 'PC';
+
+      const confirmHostEl = document.getElementById('confirmHostName');
+      if (confirmHostEl) confirmHostEl.innerText = hostName;
+
+      const confirmSidEl = document.getElementById('confirmServerId');
+      if (confirmSidEl) confirmSidEl.innerText = sidDisplay;
+
+      const confirmIpEl = document.getElementById('confirmIpAddress');
+      if (confirmIpEl) confirmIpEl.innerText = `IP: ${data.lan_ip || '연결됨'}`;
+
       document.getElementById('phoneConfirmModal').classList.remove('hidden');
-      window.__activePairCode = pairCode;
     } catch (err) {
       console.error(err);
     }
@@ -779,6 +809,7 @@ async function checkMobilePairingPrompt() {
 
 async function confirmPairing() {
   const pairCode = window.__activePairCode;
+  const serverId = window.__activeServerId;
   if (!pairCode) return;
 
   const deviceName = /iPhone/i.test(navigator.userAgent) ? 'iPhone'
@@ -789,16 +820,40 @@ async function confirmPairing() {
     const res = await fetch('/api/phone/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: pairCode, device_name: deviceName })
+      body: JSON.stringify({ code: pairCode, device_name: deviceName, server_id: serverId })
     });
     const data = await res.json();
     if (data.success) {
+      const actualSid = data.server_id || serverId || 'default';
       state.deviceToken = data.token;
+
+      // Store device token both globally and per-server ID so multiple PCs don't overwrite each other
       localStorage.setItem('deskpilot_device_token', data.token);
+      localStorage.setItem('deskpilot_current_server_id', actualSid);
+      localStorage.setItem('deskpilot_token_' + actualSid, data.token);
+
+      // Save to paired servers list
+      try {
+        const servers = JSON.parse(localStorage.getItem('deskpilot_paired_servers') || '[]');
+        const existingIdx = servers.findIndex(s => s.sid === actualSid);
+        const serverRecord = {
+          sid: actualSid,
+          name: data.hostname || 'PC',
+          token: data.token,
+          lastConnected: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          servers[existingIdx] = serverRecord;
+        } else {
+          servers.push(serverRecord);
+        }
+        localStorage.setItem('deskpilot_paired_servers', JSON.stringify(servers));
+      } catch (e) {}
+
       document.getElementById('phoneConfirmModal').classList.add('hidden');
       // Clean query parameter from URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      showToast('🎉 컴퓨터와 연동되었습니다! 이제 자유롭게 이용하세요.', 'success');
+      showToast(`🎉 [${data.hostname || '컴퓨터'}]와 성공적으로 연동되었습니다!`, 'success');
       fetchTasks();
       fetchNotes();
       fetchStatus();
@@ -817,7 +872,12 @@ function cancelPairing() {
 
 function openPhoneDisconnectModal() {
   if (confirm('현재 스마트폰과 컴퓨터의 연동을 해제하시겠습니까?')) {
+    const curSid = localStorage.getItem('deskpilot_current_server_id');
+    if (curSid) {
+      localStorage.removeItem('deskpilot_token_' + curSid);
+    }
     localStorage.removeItem('deskpilot_device_token');
+    localStorage.removeItem('deskpilot_current_server_id');
     state.deviceToken = '';
     showToast('연동이 해제되었습니다.');
     setTimeout(() => window.location.reload(), 800);

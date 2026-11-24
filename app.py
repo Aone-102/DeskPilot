@@ -196,6 +196,7 @@ def load_config():
                     cfg[k] = v
             # Sync startup link existence
             cfg.setdefault("automation", {})["autoStart"] = STARTUP_LNK.exists()
+            auth.get_or_create_server_id(cfg)
             return cfg
     except Exception as e:
         print(f"[Error] load_config: {e}")
@@ -369,12 +370,15 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             lan_ip = auth.get_local_lan_ip()
             port = cfg.get("phone", {}).get("port", 48290)
             code, secret = auth.get_or_create_active_pairing()
+            server_id = auth.get_or_create_server_id(cfg)
+            hostname = auth.get_pc_hostname()
+            encoded_hostname = urllib.parse.quote(hostname)
 
             t_status = tunnel.get_tunnel_status()
             if t_status.get("running") and t_status.get("url"):
-                pairing_url = f"{t_status['url']}/?pair={code}"
+                pairing_url = f"{t_status['url']}/?pair={code}&sid={server_id}&pc={encoded_hostname}"
             else:
-                pairing_url = f"http://{lan_ip}:{port}/?pair={code}"
+                pairing_url = f"http://{lan_ip}:{port}/?pair={code}&sid={server_id}&pc={encoded_hostname}"
 
             svg_data = auth.generate_qr_svg(pairing_url).encode("utf-8")
 
@@ -402,12 +406,14 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             scan = organizer.scan_candidates(cfg)
             lan_ip = auth.get_local_lan_ip()
             hostname = auth.get_pc_hostname()
+            server_id = auth.get_or_create_server_id(cfg)
             code, _ = auth.get_or_create_active_pairing()
 
             self.send_json({
                 "app": "DeskPilot",
                 "version": "2.0.0",
                 "hostname": hostname,
+                "server_id": server_id,
                 "lan_ip": lan_ip,
                 "today": today_str,
                 "startup_enabled": STARTUP_LNK.exists(),
@@ -469,16 +475,20 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             lan_ip = auth.get_local_lan_ip()
             port = cfg.get("phone", {}).get("port", 48290)
             code, _ = auth.get_or_create_active_pairing()
+            server_id = auth.get_or_create_server_id(cfg)
+            hostname = auth.get_pc_hostname()
+            encoded_hostname = urllib.parse.quote(hostname)
             devices = cfg.get("phone", {}).get("devices", [])
             t_status = tunnel.get_tunnel_status()
 
             if t_status.get("running") and t_status.get("url"):
-                pairing_url = f"{t_status['url']}/?pair={code}"
+                pairing_url = f"{t_status['url']}/?pair={code}&sid={server_id}&pc={encoded_hostname}"
             else:
-                pairing_url = f"http://{lan_ip}:{port}/?pair={code}"
+                pairing_url = f"http://{lan_ip}:{port}/?pair={code}&sid={server_id}&pc={encoded_hostname}"
 
             self.send_json({
-                "hostname": auth.get_pc_hostname(),
+                "hostname": hostname,
+                "server_id": server_id,
                 "lan_ip": lan_ip,
                 "port": port,
                 "pairing_code": code,
@@ -702,7 +712,8 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
                     "success": True,
                     "token": raw_token,
                     "device": dev_info,
-                    "hostname": auth.get_pc_hostname()
+                    "hostname": auth.get_pc_hostname(),
+                    "server_id": auth.get_or_create_server_id(cfg)
                 })
             else:
                 self.send_json({

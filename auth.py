@@ -39,6 +39,20 @@ def get_pc_hostname():
         return "DeskPilot-PC"
 
 
+def get_or_create_server_id(config):
+    """
+    Returns a unique server/PC ID persistently stored in config.json.
+    Ensures that each PC has its own distinct, non-overlapping QR pairing link and identifier.
+    Derived deterministically from the machine's hardware GUID & hostname so it stays consistent per PC.
+    """
+    phone_cfg = config.setdefault("phone", {})
+    if "serverId" not in phone_cfg or not phone_cfg["serverId"]:
+        # Deterministic 8-character hex ID based on this specific PC's hardware node and hostname
+        host_hash = hashlib.sha256(f"{get_pc_hostname()}_{uuid.getnode()}".encode("utf-8")).hexdigest()[:8]
+        phone_cfg["serverId"] = f"dp_{host_hash}"
+    return phone_cfg["serverId"]
+
+
 def create_pairing_code(ttl_seconds=600):
     """
     Creates a 6-digit pairing code with an expiration time.
