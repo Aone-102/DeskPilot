@@ -86,7 +86,7 @@ function switchTab(tabId) {
   }
 
   // Mobile bottom nav buttons
-  ['tasks', 'share', 'organize', 'settings'].forEach(id => {
+  ['tasks', 'share', 'screen', 'organize', 'settings'].forEach(id => {
     const mBtn = document.getElementById(`mobileNav-${id}`);
     if (mBtn) {
       if (id === tabId) {
@@ -114,6 +114,9 @@ function switchTab(tabId) {
     fetchSharedClips();
   } else if (tabId === 'settings') {
     fetchSettings();
+  } else if (tabId === 'screen') {
+    refreshScreenShot();
+    fetchActiveWindows();
   }
 }
 
@@ -1312,6 +1315,182 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// --- Remote PC Screen & Active Windows Monitor ---
+let screenAutoRefreshTimer = null;
+let lastScreenBlobUrl = null;
+
+async function refreshScreenShot() {
+  const spinner = document.getElementById('screenLoadingSpinner');
+  if (spinner) spinner.classList.remove('hidden');
+
+  const btn = document.getElementById('btnRefreshScreen');
+  if (btn) btn.classList.add('opacity-75');
+
+  try {
+    const res = await apiFetch('/api/screen/shot?t=' + Date.now());
+    if (!res.ok) throw new Error('화면 캡처 실패');
+
+    const width = res.headers.get('X-Screen-Width') || '1920';
+    const height = res.headers.get('X-Screen-Height') || '1080';
+    const capTime = res.headers.get('X-Captured-At') || new Date().toLocaleTimeString('ko-KR');
+
+    const blob = await res.blob();
+    if (lastScreenBlobUrl) {
+      URL.revokeObjectURL(lastScreenBlobUrl);
+    }
+    lastScreenBlobUrl = URL.createObjectURL(blob);
+
+    const img = document.getElementById('pcScreenImage');
+    if (img) {
+      img.src = lastScreenBlobUrl;
+    }
+
+    const modalImg = document.getElementById('modalScreenImage');
+    if (modalImg) {
+      modalImg.src = lastScreenBlobUrl;
+    }
+
+    const badge = document.getElementById('screenResolutionBadge');
+    if (badge) badge.innerText = `${width}x${height}`;
+
+    const timeEl = document.getElementById('screenTimestamp');
+    if (timeEl) timeEl.innerText = `마지막 갱신: ${capTime}`;
+
+    const modalTime = document.getElementById('modalScreenTime');
+    if (modalTime) modalTime.innerText = `(${width}x${height} / ${capTime})`;
+
+  } catch (err) {
+    console.error('refreshScreenShot error:', err);
+    showToast('컴퓨터 화면을 불러오지 못했습니다.', 'error');
+  } finally {
+    if (spinner) spinner.classList.add('hidden');
+    if (btn) btn.classList.remove('opacity-75');
+  }
+}
+
+function onScreenImageLoaded() {
+  const spinner = document.getElementById('screenLoadingSpinner');
+  if (spinner) spinner.classList.add('hidden');
+}
+
+function onScreenImageError() {
+  const spinner = document.getElementById('screenLoadingSpinner');
+  if (spinner) spinner.classList.add('hidden');
+}
+
+function toggleScreenAutoRefresh() {
+  const checkbox = document.getElementById('screenAutoRefreshToggle');
+  const liveBadge = document.getElementById('screenLiveBadge');
+  
+  if (checkbox && checkbox.checked) {
+    if (liveBadge) liveBadge.classList.remove('hidden');
+    if (!screenAutoRefreshTimer) {
+      refreshScreenShot();
+      screenAutoRefreshTimer = setInterval(() => {
+        if (state.activeTab === 'screen' && !document.hidden) {
+          refreshScreenShot();
+        }
+      }, 3000);
+    }
+  } else {
+    if (liveBadge) liveBadge.classList.add('hidden');
+    if (screenAutoRefreshTimer) {
+      clearInterval(screenAutoRefreshTimer);
+      screenAutoRefreshTimer = null;
+    }
+  }
+}
+
+function openScreenFullscreen() {
+  const modal = document.getElementById('screenFullscreenModal');
+  const img = document.getElementById('pcScreenImage');
+  const modalImg = document.getElementById('modalScreenImage');
+  if (img && modalImg && img.src) {
+    modalImg.src = img.src;
+  }
+  if (modal) modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeScreenFullscreen() {
+  const modal = document.getElementById('screenFullscreenModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function fetchActiveWindows() {
+  try {
+    const res = await apiFetch('/api/screen/windows');
+    const data = await res.json();
+    renderActiveWindows(data.windows || []);
+  } catch (err) {
+    console.error('fetchActiveWindows error:', err);
+  }
+}
+
+function renderActiveWindows(windows) {
+  const container = document.getElementById('activeWindowsList');
+  const badge = document.getElementById('activeWindowsCountBadge');
+  if (!container) return;
+
+  if (badge) badge.innerText = `${windows.length}개`;
+
+  if (!windows || windows.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full text-center py-6 border border-dashed border-slate-700/60 rounded-xl text-slate-500 text-xs">
+        열려 있는 창이 없거나 정보를 불러올 수 없습니다.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = windows.map((w) => {
+    let icon = 'app-window';
+    let appType = '프로그램';
+    const lower = w.title.toLowerCase();
+    if (lower.includes('chrome') || lower.includes('edge') || lower.includes('whale') || lower.includes('firefox')) {
+      icon = 'globe';
+      appType = '웹 브라우저';
+    } else if (lower.includes('discord')) {
+      icon = 'message-square';
+      appType = '디스코드';
+    } else if (lower.includes('카카오톡') || lower.includes('kakaotalk')) {
+      icon = 'message-circle';
+      appType = '카카오톡';
+    } else if (lower.includes('visual studio') || lower.includes('code') || lower.includes('ide')) {
+      icon = 'code';
+      appType = '개발 도구';
+    } else if (lower.includes('deskpilot')) {
+      icon = 'compass';
+      appType = 'DeskPilot';
+    } else if (lower.includes('탐색기') || lower.includes('explorer')) {
+      icon = 'folder';
+      appType = '파일 탐색기';
+    }
+
+    return `
+      <div class="p-3 bg-slate-900/60 hover:bg-slate-900/90 border border-slate-700/60 rounded-xl flex items-center justify-between gap-2.5 transition-all">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <i data-lucide="${icon}" class="w-4 h-4"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-semibold text-slate-200 truncate" title="${escapeHtml(w.title)}">
+              ${escapeHtml(w.title)}
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-[10px] text-indigo-300 font-medium">${appType}</span>
+              ${w.width ? `<span class="text-[10px] text-slate-500 font-mono">${w.width}x${w.height}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">실행 중</span>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
 // Initial Boot
 window.addEventListener('DOMContentLoaded', () => {
   fetchTasks();
@@ -1364,6 +1543,11 @@ async function performAutoSync() {
     // Every 5s on organize tab
     try {
       await fetchScanFiles();
+    } catch (e) {}
+  } else if (state.activeTab === 'screen' && syncTickCount % 2 === 0) {
+    // Every 5s on screen tab: refresh open windows
+    try {
+      await fetchActiveWindows();
     } catch (e) {}
   }
 }
