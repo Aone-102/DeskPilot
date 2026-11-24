@@ -6,6 +6,8 @@ let state = {
   systemStatus: {},
   notesTimer: null,
   pendingScan: { files: [], total_count: 0, total_size: 0 },
+  sharedClips: [],
+  noteCandidateLines: [],
   activeTab: 'tasks',
   isMobile: false,
   deviceToken: localStorage.getItem('deskpilot_device_token') || ''
@@ -109,6 +111,7 @@ function switchTab(tabId) {
     fetchHistory();
   } else if (tabId === 'share') {
     fetchSharedFiles();
+    fetchSharedClips();
   } else if (tabId === 'settings') {
     fetchSettings();
   }
@@ -343,6 +346,111 @@ function copyNotes() {
   navigator.clipboard.writeText(content).then(() => {
     showToast('메모가 클립보드에 복사되었습니다!', 'success');
   });
+}
+
+// --- Memo to Task Conversion ---
+function openNoteToTaskModal() {
+  const content = (document.getElementById('notesArea') ? document.getElementById('notesArea').value : '') || '';
+  const lines = content.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (lines.length === 0) {
+    showToast('메모장에 등록할 내용이 없습니다.', 'info');
+    return;
+  }
+
+  state.noteCandidateLines = lines;
+  const container = document.getElementById('noteToTaskListContainer');
+  if (container) {
+    container.innerHTML = lines.map((line, idx) => {
+      const cleanTitle = line.replace(/^([*\-+•]\s*(\[[ xX]?\]\s*)?|\d+[\.\)]\s*)/, '').trim() || line;
+      return `
+        <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 hover:border-slate-500 cursor-pointer transition-colors">
+          <input type="checkbox" id="noteTaskCheck_${idx}" checked class="mt-0.5 w-4 h-4 text-indigo-600 rounded bg-slate-800 border-slate-700 focus:ring-indigo-500 shrink-0">
+          <span class="text-xs text-slate-200 select-none flex-1 break-all">${escapeHtml(cleanTitle)}</span>
+        </label>
+      `;
+    }).join('');
+  }
+
+  const modal = document.getElementById('noteToTaskModal');
+  if (modal) modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeNoteToTaskModal() {
+  const modal = document.getElementById('noteToTaskModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitNoteToTasks() {
+  const lines = state.noteCandidateLines || [];
+  const selectedTitles = [];
+  const selectedRawLines = [];
+
+  lines.forEach((line, idx) => {
+    const cb = document.getElementById(`noteTaskCheck_${idx}`);
+    if (cb && cb.checked) {
+      const cleanTitle = line.replace(/^([*\-+•]\s*(\[[ xX]?\]\s*)?|\d+[\.\)]\s*)/, '').trim() || line;
+      selectedTitles.push(cleanTitle);
+      selectedRawLines.push(line);
+    }
+  });
+
+  if (selectedTitles.length === 0) {
+    showToast('등록할 항목을 선택해주세요.', 'error');
+    return;
+  }
+
+  const priority = (document.getElementById('noteToTaskPriority') ? document.getElementById('noteToTaskPriority').value : 'normal') || 'normal';
+  const shouldDelete = document.getElementById('noteToTaskDeleteFromMemo') ? document.getElementById('noteToTaskDeleteFromMemo').checked : true;
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const submitBtn = document.getElementById('btnSubmitNoteToTasks');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = '등록 중...';
+  }
+
+  try {
+    const res = await apiFetch('/api/tasks/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({
+        titles: selectedTitles,
+        priority: priority,
+        dueDate: todayStr,
+        estimateMin: 30
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (shouldDelete) {
+        const notesArea = document.getElementById('notesArea');
+        if (notesArea) {
+          const currentLines = notesArea.value.split('\n');
+          const remaining = currentLines.filter(l => !selectedRawLines.includes(l.trim()));
+          notesArea.value = remaining.join('\n');
+          saveNotesDebounced();
+        }
+      }
+
+      await fetchTasks();
+      closeNoteToTaskModal();
+      showToast(`${selectedTitles.length}개의 할 일이 추가되었습니다!`, 'success');
+    } else {
+      showToast(data.error || '할 일 등록 실패', 'error');
+    }
+  } catch (err) {
+    showToast('할 일 등록 중 오류가 발생했습니다.', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i><span>할 일 등록하기</span>';
+      lucide.createIcons();
+    }
+  }
 }
 
 // --- File Organizer API & Safety (PRD B2, B4, B5) ---
@@ -1049,6 +1157,137 @@ async function deleteSharedFile(fileId) {
   }
 }
 
+// --- Clipboard & Link Instant Transfer (QuickDrop Extension) ---
+async function fetchSharedClips() {
+  try {
+    const res = await apiFetch('/api/shared/clips');
+    const data = await res.json();
+    state.sharedClips = data.clips || [];
+    renderSharedClips(state.sharedClips);
+  } catch (err) {
+    console.error('fetchSharedClips error:', err);
+  }
+}
+
+function renderSharedClips(clips) {
+  const container = document.getElementById('sharedClipsContainer');
+  if (!container) return;
+
+  if (!clips || clips.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-5 border border-dashed border-slate-700/60 rounded-xl text-slate-500 text-xs">
+        <i data-lucide="inbox" class="w-6 h-6 mx-auto mb-1 opacity-50"></i>
+        <span>공유된 텍스트나 링크가 없습니다. 위 입력창에 입력하고 전송해보세요.</span>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = clips.map(clip => {
+    const isUrl = clip.type === 'url' || /^https?:\/\//i.test(clip.content);
+    const uploaderBadge = clip.uploader === 'PC'
+      ? '<span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">💻 PC</span>'
+      : `<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">📱 ${escapeHtml(clip.uploader || '스마트폰')}</span>`;
+
+    const typeBadge = isUrl
+      ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium">🔗 링크</span>'
+      : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-medium">📝 텍스트</span>';
+
+    const contentHtml = isUrl
+      ? `<a href="${escapeHtml(clip.content)}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 break-all text-xs font-mono select-text flex items-center gap-1">
+          <span>${escapeHtml(clip.content)}</span>
+          <i data-lucide="external-link" class="w-3 h-3 inline shrink-0"></i>
+         </a>`
+      : `<div class="text-xs text-slate-200 select-text whitespace-pre-wrap break-all leading-relaxed">${escapeHtml(clip.content)}</div>`;
+
+    return `
+      <div class="p-3 bg-slate-900/60 hover:bg-slate-900/90 border border-slate-700/60 rounded-xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div class="flex-1 min-w-0 space-y-1">
+          <div class="flex items-center gap-2">
+            ${uploaderBadge}
+            ${typeBadge}
+            <span class="text-slate-500 text-[11px]">${clip.timestamp || ''}</span>
+          </div>
+          <div class="pt-0.5">
+            ${contentHtml}
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+          <button onclick="copyClipContent('${clip.id}')" title="클립보드에 복사" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 active:scale-95 transition-all">
+            <i data-lucide="copy" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>복사</span>
+          </button>
+          ${isUrl ? `
+            <a href="${escapeHtml(clip.content)}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/80 hover:bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 active:scale-95 transition-all">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>열기</span>
+            </a>
+          ` : ''}
+          <button onclick="deleteSharedClip('${clip.id}')" title="삭제" class="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg transition-colors">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+async function sendSharedClip() {
+  const input = document.getElementById('clipInputText');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) {
+    showToast('전송할 내용이나 링크를 입력하세요.', 'info');
+    return;
+  }
+
+  const uploader = state.isMobile 
+    ? (navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Galaxy')
+    : 'PC';
+
+  try {
+    const res = await apiFetch('/api/shared/clips', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ content, uploader })
+    });
+    const data = await res.json();
+    if (data.success) {
+      input.value = '';
+      await fetchSharedClips();
+      showToast('클립보드 내용이 전송되었습니다!', 'success');
+    } else {
+      showToast(data.error || data.message || '전송 실패', 'error');
+    }
+  } catch (err) {
+    showToast('전송 중 오류 발생', 'error');
+  }
+}
+
+function copyClipContent(clipId) {
+  const clip = (state.sharedClips || []).find(c => c.id === clipId);
+  if (!clip || !clip.content) return;
+  navigator.clipboard.writeText(clip.content).then(() => {
+    showToast('클립보드에 복사되었습니다!', 'success');
+  }).catch(() => {
+    showToast('복사 실패', 'error');
+  });
+}
+
+async function deleteSharedClip(clipId) {
+  try {
+    await apiFetch(`/api/shared/clips/${clipId}`, { method: 'DELETE' });
+    await fetchSharedClips();
+    showToast('공유 항목이 삭제되었습니다.');
+  } catch (err) {
+    showToast('삭제 실패', 'error');
+  }
+}
+
 // Drag & drop dropzone support
 window.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('dropZone');
@@ -1079,13 +1318,14 @@ window.addEventListener('DOMContentLoaded', () => {
   fetchNotes();
   fetchScanFiles();
   fetchSharedFiles();
+  fetchSharedClips();
   fetchStatus();
   checkMobilePairingPrompt();
   lucide.createIcons();
 });
 
 // --- Realtime Auto-Sync Engine ---
-// Periodically synchronizes tasks, notes, shared files, status, and settings across PC & Smartphone
+// Periodically synchronizes tasks, notes, shared files, clips, status, and settings across PC & Smartphone
 let syncTickCount = 0;
 
 async function performAutoSync() {
@@ -1093,7 +1333,7 @@ async function performAutoSync() {
 
   syncTickCount++;
 
-  // 1. Every 2.5 seconds: Status & Tasks & Shared Files (Core real-time items)
+  // 1. Every 2.5 seconds: Status & Tasks & Shared Files & Shared Clips
   try {
     await fetchStatus();
   } catch (e) {}
@@ -1104,6 +1344,10 @@ async function performAutoSync() {
 
   try {
     await fetchSharedFiles();
+  } catch (e) {}
+
+  try {
+    await fetchSharedClips();
   } catch (e) {}
 
   // 2. Notes sync (only when user is not actively typing in notesArea)

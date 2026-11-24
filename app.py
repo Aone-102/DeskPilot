@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import json
 import time
 import uuid
@@ -37,6 +38,7 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 TASKS_FILE = DATA_DIR / "tasks.json"
 NOTES_FILE = DATA_DIR / "notes.json"
 HISTORY_FILE = DATA_DIR / "history.json"
+CLIPS_FILE = DATA_DIR / "clips.json"
 
 # Key user folders
 DESKTOP_DIR = USER_HOME / "Desktop"
@@ -470,6 +472,12 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             self.send_json({"files": files})
             return
 
+        # 10-1. Shared Clips (Text / Link) List API
+        elif path == "/api/shared/clips":
+            clips = load_json(CLIPS_FILE, [])
+            self.send_json({"clips": clips})
+            return
+
         # 11. Shared File Download API
         elif path.startswith("/api/shared/download"):
             file_id = query.get("id", [""])[0] or query.get("name", [""])[0]
@@ -632,6 +640,51 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             self.send_json({"success": True, "task": new_task})
             return
 
+        # 3-1. Batch Add Tasks (e.g. from Memo or multiline text)
+        elif path == "/api/tasks/batch":
+            titles = body.get("titles", [])
+            priority = body.get("priority", "normal")
+            due_date = body.get("dueDate", datetime.date.today().isoformat())
+            estimate_min = int(body.get("estimateMin", 30))
+            tags = body.get("tags", ["메모"])
+
+            tasks = load_json(TASKS_FILE, [])
+            added_tasks = []
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            for item in titles:
+                t_title = str(item).strip()
+                if not t_title:
+                    continue
+                # Strip leading checklist / bullet markdown (e.g., "- [ ] ", "- ", "* ", "1. ")
+                clean_title = re.sub(r"^(\s*[-*•]|\d+\.)(\s*\[[\sXx]?\])?\s*", "", t_title).strip()
+                if not clean_title:
+                    clean_title = t_title
+
+                new_t = {
+                    "id": str(uuid.uuid4()),
+                    "title": clean_title,
+                    "text": clean_title,
+                    "priority": priority,
+                    "dueDate": due_date,
+                    "estimateMin": estimate_min,
+                    "tags": tags,
+                    "done": False,
+                    "doneAt": None,
+                    "date": datetime.date.today().isoformat(),
+                    "carriedCount": 0,
+                    "createdAt": now_str,
+                    "updatedAt": now_str
+                }
+                tasks.insert(0, new_t)
+                added_tasks.append(new_t)
+
+            if added_tasks:
+                save_json(TASKS_FILE, tasks)
+
+            self.send_json({"success": True, "count": len(added_tasks), "tasks": added_tasks})
+            return
+
         # 4. Manual Carryover
         elif path == "/api/tasks/carryover":
             tasks = load_json(TASKS_FILE, [])
@@ -768,6 +821,52 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             self.send_json({"success": True, "tunnel": tunnel.get_tunnel_status()})
             return
 
+        # 16. Shared Clips API (Send text or link)
+        elif path == "/api/shared/clips":
+            content = body.get("content", "").strip()
+            if not content:
+                self.send_json({"success": False, "message": "전송할 내용을 입력해주세요."}, 400)
+                return
+
+            uploader = "PC"
+            if not self.is_local_request():
+                auth_ok, dev = self.check_phone_auth(cfg)
+                if dev:
+                    uploader = dev.get("name", "스마트폰")
+                else:
+                    uploader = "스마트폰"
+            else:
+                custom_uploader = body.get("uploader")
+                if custom_uploader:
+                    uploader = custom_uploader
+
+            is_url = bool(re.match(r"^https?://[^\s]+", content, re.IGNORECASE))
+            clip_type = "url" if is_url else "text"
+
+            new_clip = {
+                "id": str(uuid.uuid4()),
+                "type": clip_type,
+                "content": content,
+                "uploader": uploader,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+
+            clips = load_json(CLIPS_FILE, [])
+            clips.insert(0, new_clip)
+            save_json(CLIPS_FILE, clips[:100])
+
+            self.send_json({"success": True, "clip": new_clip})
+            return
+
+        # 17. Delete Shared Clip API
+        elif path == "/api/shared/clips/delete":
+            clip_id = body.get("clip_id")
+            clips = load_json(CLIPS_FILE, [])
+            new_clips = [c for c in clips if c.get("id") != clip_id]
+            save_json(CLIPS_FILE, new_clips)
+            self.send_json({"success": True})
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -832,6 +931,14 @@ class DeskPilotV2Handler(BaseHTTPRequestHandler):
             file_id = path.replace("/api/shared/files/", "").strip()
             deleted = file_share.delete_shared_file(file_id)
             self.send_json({"success": deleted})
+            return
+
+        elif path.startswith("/api/shared/clips/"):
+            clip_id = path.replace("/api/shared/clips/", "").strip()
+            clips = load_json(CLIPS_FILE, [])
+            new_clips = [c for c in clips if c.get("id") != clip_id]
+            save_json(CLIPS_FILE, new_clips)
+            self.send_json({"success": True})
             return
 
         self.send_response(404)
