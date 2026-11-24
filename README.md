@@ -93,6 +93,8 @@ DeskPilot/
 ├── git_push.bat        # GitHub 원클릭 자동 커밋 & 푸시 동기화 배치 파일
 ├── start.bat           # 일반 콘솔 실행용 배치 파일
 ├── run.vbs             # 윈도우 부팅 시 검은 창 없이 백그라운드로 자동 실행하기 위한 VBScript
+├── PRD.md              # DeskPilot v2.0 제품 요구사항 정의서
+├── HANDOVER.md         # 개발 현황 및 인수인계 문서
 └── README.md           # 본 안내 문서
 ```
 

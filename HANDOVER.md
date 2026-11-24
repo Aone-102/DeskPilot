@@ -52,6 +52,7 @@ c:\Users\cheon\Desktop\임시 만들거\
 ├── installer.py          # 원클릭 자동 설치 프로그램(Tkinter Setup GUI, 바로가기/레지스트리 등록)
 ├── build_installer.bat   # 단일 자동 설치 파일(DeskPilot-Setup.exe) 빌드 스크립트
 ├── .gitignore            # Git/GitHub 업로드 시 제외할 임시 파일 및 캐시 목록 정의
+├── PRD.md                # DeskPilot v2.0 제품 요구사항 정의서
 ├── README.md             # 사용자용 기능 설명, 아키텍처, 실행 및 GitHub 배포 가이드
 ├── HANDOVER.md           # 개발 현황 및 인수인계 문서
 ├── static/
