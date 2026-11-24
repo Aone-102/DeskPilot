@@ -30,3 +30,12 @@ $RECYCLE.BIN/
 *.swp
 *.swo
 
+# Debug / server output files
+server_out.txt
+server_err.txt
+*.txt.bak
+
+# Local config override
+config.json
+data/
+

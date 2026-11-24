@@ -46,6 +46,12 @@
 * **열려있는 창 목록 인터랙션 & 터치 복사:**
   * 컴퓨터에 열려 있는 창 목록 카드 클릭 시 창 제목 클립보드 즉시 복사 지원.
 * **터치 확대 & 전체화면 뷰어:** 화면 터치 시 전체화면 모달이 열려 스마트폰에서도 세부 작업 내용을 선명하게 확인 가능.
+* **화면 공유 로직 구현 완료 현황 (2026-11-24 세션 기준 최종 검증):**
+  * **백엔드 (`screen_viewer.py`):** `capture_screen_jpeg(quality, max_width)` 및 `get_active_windows()` 완전 구현. `_attach_desktop()`으로 GUI 세션 보장.
+  * **API 엔드포인트 (`app.py`):** `/api/screen/shot` (단일 프레임 JPEG), `/api/screen/stream` (MJPEG 스트림, ~12 FPS), `/api/screen/windows` (창 목록) 세 개 모두 정상 구현. 외부 접속 시 Header/QueryParam/Cookie 다중 토큰 인증 완벽 지원.
+  * **프론트엔드 (`static/app.js`):** `refreshScreenShot()`, `runAdaptiveScreenLiveLoop()`, `toggleScreenAutoRefresh()`, `fetchActiveWindows()`, `renderActiveWindows()`, `openScreenFullscreen()` 등 전체 화면 공유 로직 완전 구현.
+  * **UI (`static/index.html`):** 화면 공유 탭(tab-screen), LIVE 뱃지, 해상도 배지, RTT 표시, 화질 선택(fast/hd), 전체화면 모달(MODAL 5), 창 목록 카드, 헤더 퀵버튼 `[🖥️ 화면 공유]` 모두 존재 및 정상 작동.
+  * **`.gitignore` 업데이트:** `server_out.txt`, `server_err.txt`, `config.json`, `data/` 제외 추가.
 
 ### 6) PRD 기준 문제점(A1~A7, B1~B6) 및 실시간 동기화 해결 내역
 * **A1 (한글 깨짐):** 전 구간 UTF-8 강제 적용 및 데이터 정상 복구.
