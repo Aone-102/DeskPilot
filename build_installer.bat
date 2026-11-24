@@ -11,17 +11,12 @@ if not exist "%PYTHON_EXE%" (
     set "PYTHON_EXE=python"
 )
 
-echo [1/3] DeskPilot 본체 바이너리 빌드 확인 중...
-if not exist "dist\DeskPilot\DeskPilot.exe" (
-    echo     dist\DeskPilot 폴더가 없어 본체를 먼저 빌드합니다...
-    "%PYTHON_EXE%" -m PyInstaller --noconsole --onedir --name "DeskPilot" --add-data "static;static" --clean app.py
-    if errorlevel 1 (
-        echo [오류] 본체 빌드 실패!
-        pause
-        exit /b 1
-    )
-) else (
-    echo     기존 빌드된 dist\DeskPilot 바이너리를 사용합니다.
+echo [1/3] DeskPilot 본체 최신 바이너리 컴파일 중...
+"%PYTHON_EXE%" -m PyInstaller -y --noconsole --onedir --name "DeskPilot" --add-data "static;static" --clean app.py
+if errorlevel 1 (
+    echo [오류] 본체 빌드 실패!
+    pause
+    exit /b 1
 )
 
 echo.
@@ -35,7 +30,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/3] 원클릭 자동 설치 파일(DeskPilot-Setup.exe) 컴파일 중...
-"%PYTHON_EXE%" -m PyInstaller --noconsole --onefile --name "DeskPilot-Setup" --add-data "payload.zip;." --clean installer.py
+"%PYTHON_EXE%" -m PyInstaller -y --noconsole --onefile --name "DeskPilot-Setup" --add-data "payload.zip;." --clean installer.py
 if errorlevel 1 (
     echo [오류] 인스톨러 빌드 실패!
     pause

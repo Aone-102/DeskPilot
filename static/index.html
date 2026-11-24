@@ -76,6 +76,12 @@
         </button>
       </div>
 
+      <!-- Quick Screen Share Action -->
+      <button onclick="switchTab('screen')" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold px-3 py-2 rounded-xl border border-indigo-500/30 shadow-sm transition-all active:scale-95" title="실시간 컴퓨터 화면 공유 열기">
+        <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-400"></i>
+        <span>화면 공유</span>
+      </button>
+
       <!-- Quick Organize Action -->
       <button onclick="runOrganize()" class="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all active:scale-95">
         <i data-lucide="sparkles" class="w-4 h-4"></i>
@@ -133,7 +139,7 @@
       </button>
       <button onclick="switchTab('screen')" id="tabBtn-screen" class="tab-btn flex items-center gap-2 py-3 px-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
         <i data-lucide="monitor" class="w-4 h-4"></i>
-        <span>컴퓨터 화면</span>
+        <span>실시간 화면 공유</span>
       </button>
     </nav>
   </div>
@@ -673,7 +679,7 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h3 class="text-base font-bold text-white">실시간 컴퓨터 화면</h3>
+                <h3 class="text-base font-bold text-white">실시간 컴퓨터 화면 공유</h3>
                 <span id="screenLiveBadge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse">● LIVE 갱신 중</span>
               </div>
               <p class="text-xs text-slate-400 mt-0.5">스마트폰에서 현재 PC 모니터 화면을 실시간으로 확인합니다.</p>
@@ -771,7 +777,7 @@
     </button>
     <button onclick="switchTab('screen')" id="mobileNav-screen" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
       <i data-lucide="monitor" class="w-5 h-5"></i>
-      <span class="text-[10px]">PC 화면</span>
+      <span class="text-[10px]">화면 공유</span>
     </button>
     <button onclick="switchTab('organize')" id="mobileNav-organize" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
       <i data-lucide="folder-sync" class="w-5 h-5"></i>

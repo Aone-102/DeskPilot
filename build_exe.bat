@@ -14,7 +14,7 @@ if not exist "%PYTHON_EXE%" (
 )
 
 echo [1/2] PyInstaller 컴파일 실행 중...
-"%PYTHON_EXE%" -m PyInstaller --noconsole --onedir --name "DeskPilot" --add-data "static;static" --clean app.py
+"%PYTHON_EXE%" -m PyInstaller -y --noconsole --onedir --name "DeskPilot" --add-data "static;static" --clean app.py
 
 if errorlevel 1 (
     echo.
