@@ -1,0 +1,78 @@
+{
+  "auto_startup": false,
+  "clean_on_startup": true,
+  "show_window_on_startup": true,
+  "periodic_clean": false,
+  "periodic_interval_minutes": 30,
+  "organized_dir": "C:\\Users\\cheon\\Desktop\\정리된_파일",
+  "watch_folders": [
+    {
+      "name": "바탕화면",
+      "path": "C:\\Users\\cheon\\Desktop",
+      "enabled": true
+    },
+    {
+      "name": "다운로드",
+      "path": "C:\\Users\\cheon\\Downloads",
+      "enabled": true
+    }
+  ],
+  "rules": {
+    "문서": [
+      ".pdf",
+      ".docx",
+      ".doc",
+      ".xlsx",
+      ".xls",
+      ".pptx",
+      ".ppt",
+      ".txt",
+      ".hwp",
+      ".hwpx",
+      ".csv"
+    ],
+    "이미지": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".webp",
+      ".svg",
+      ".bmp",
+      ".ico"
+    ],
+    "압축파일": [
+      ".zip",
+      ".rar",
+      ".7z",
+      ".tar",
+      ".gz"
+    ],
+    "설치파일": [
+      ".exe",
+      ".msi",
+      ".iso"
+    ],
+    "미디어": [
+      ".mp4",
+      ".mkv",
+      ".avi",
+      ".mov",
+      ".mp3",
+      ".wav",
+      ".flac"
+    ],
+    "코드": [
+      ".py",
+      ".js",
+      ".ts",
+      ".html",
+      ".css",
+      ".json",
+      ".sql",
+      ".java",
+      ".c",
+      ".cpp"
+    ]
+  }
+}

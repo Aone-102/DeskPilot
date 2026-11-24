@@ -1,0 +1,78 @@
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.5);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.7);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content:not(.hidden) {
+  animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Task Item styling */
+.task-item {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.task-item:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background-color: rgba(30, 41, 59, 0.95);
+}
+
+/* Priority Badges */
+.badge-priority-urgent {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.badge-priority-high {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-priority-normal, .badge-priority-medium {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badge-priority-low {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Mobile responsive enhancements */
+@media (max-width: 720px) {
+  #desktopHeader, #desktopNav {
+    display: none !important;
+  }
+  #mobileHeader {
+    display: flex !important;
+  }
+  #mobileBottomNav {
+    display: flex !important;
+  }
+  body {
+    padding-bottom: 70px;
+  }
+}

@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>DeskPilot - 스마트 데스크탑 비서</title>
+  <!-- Pretendard Font -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none antialiased">
+
+  <!-- Desktop Header (Hidden on Mobile) -->
+  <header id="desktopHeader" class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <i data-lucide="compass" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-bold tracking-tight text-white">DeskPilot</h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">v2.0</span>
+          <span id="hostnameBadge" class="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700 font-mono">PC</span>
+        </div>
+        <p class="text-xs text-slate-400">안전한 파일 자동 정리 &middot; 오늘의 할 일 &middot; 스마트폰 연동</p>
+      </div>
+    </div>
+
+    <!-- Date, Clock, Quick Actions -->
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 hidden sm:flex">
+        <div id="syncIndicator" class="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 shadow-sm" title="PC-스마트폰 실시간 자동 동기화 활성">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>실시간 동기화</span>
+        </div>
+        <div class="text-right">
+          <div id="liveClock" class="text-sm font-semibold text-slate-200">12:00:00</div>
+          <div id="liveDate" class="text-xs text-slate-400">2026. 11. 24. (화)</div>
+        </div>
+      </div>
+
+      <!-- Smartphone Pairing Button -->
+      <button onclick="openPhoneModal()" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700/80 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 shadow-sm transition-all active:scale-95">
+        <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i>
+        <span>스마트폰 연동</span>
+        <span id="headerPhoneBadge" class="bg-emerald-500/20 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">0대</span>
+      </button>
+
+      <!-- Quick Startup Toggle -->
+      <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-700 px-3 py-1.5 rounded-xl">
+        <span class="text-xs text-slate-300">부팅 자동실행</span>
+        <button id="headerStartupBtn" onclick="toggleStartup()" class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-700">
+          <span id="headerStartupDot" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+        </button>
+      </div>
+
+      <!-- Quick Organize Action -->
+      <button onclick="runOrganize()" class="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all active:scale-95">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span>파일 정리</span>
+        <span id="quickBadgeCount" class="bg-indigo-900/80 text-indigo-200 text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile App Top Bar (Visible only on Mobile) -->
+  <header id="mobileHeader" class="hidden bg-slate-800/90 backdrop-blur border-b border-slate-700/60 sticky top-0 z-40 px-4 py-3 items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+        <i data-lucide="compass" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm font-bold text-white">DeskPilot</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Mobile</span>
+        </div>
+        <div class="flex items-center gap-1 text-[11px] text-emerald-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="mobileHostName">PC 연동됨</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="openPhoneDisconnectModal()" class="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800">
+        연동 해제
+      </button>
+    </div>
+  </header>
+
+  <!-- Desktop Navigation Tabs (Hidden on Mobile) -->
+  <div id="desktopNav" class="bg-slate-800/40 border-b border-slate-700/40 px-6">
+    <nav class="flex space-x-4">
+      <button onclick="switchTab('tasks')" id="tabBtn-tasks" class="tab-btn active-tab flex items-center gap-2 py-3 px-3 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400 transition-colors">
+        <i data-lucide="check-square" class="w-4 h-4"></i>
+        <span>할 일 & 메모</span>
+        <span id="tabTaskCount" class="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-semibold">0</span>
+      </button>
+      <button onclick="switchTab('share')" id="tabBtn-share" class="tab-btn flex items-center gap-2 py-3 px-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span>기기 간 파일 공유 (QuickDrop)</span>
+        <span id="tabShareCount" class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
+      </button>
+      <button onclick="switchTab('organize')" id="tabBtn-organize" class="tab-btn flex items-center gap-2 py-3 px-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="folder-sync" class="w-4 h-4"></i>
+        <span>스마트 파일 정리</span>
+        <span id="tabOrganizeCount" class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
+      </button>
+      <button onclick="switchTab('settings')" id="tabBtn-settings" class="tab-btn flex items-center gap-2 py-3 px-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+        <i data-lucide="sliders" class="w-4 h-4"></i>
+        <span>설정 및 스마트폰 연동</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Toast Notification Alert -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-12 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium"></div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 overflow-y-auto mb-16 sm:mb-0">
+
+    <!-- TAB 1: 할 일 & 메모 -->
+    <section id="tab-tasks" class="tab-content grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Left: Tasks (2 cols) -->
+      <div class="lg:col-span-2 space-y-4">
+        <!-- Progress Card -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <span>오늘의 성취도</span>
+                <span id="progressFraction" class="text-xs font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded-md">0 / 0</span>
+                <span id="progressPercent" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-semibold">0%</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1" id="progressStatusText">오늘 할 일을 등록해 보세요.</p>
+            </div>
+            <button onclick="carryOverTasks()" class="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/20 transition-all">
+              <i data-lucide="arrow-down-to-dot" class="w-3.5 h-3.5"></i>
+              <span>어제 미완료 일 가져오기</span>
+            </button>
+          </div>
+          <!-- Progress bar -->
+          <div class="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+            <div id="progressBar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Add Task Form -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 shadow-sm">
+          <form onsubmit="addTask(event)" class="space-y-3">
+            <div class="flex gap-2">
+              <input type="text" id="taskInput" placeholder="새로운 할 일을 입력하세요..." class="flex-1 bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5 shadow-md active:scale-95 shrink-0">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">추가</span>
+              </button>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <!-- Priority -->
+              <select id="taskPriority" class="bg-slate-900/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none">
+                <option value="urgent">🔥 긴급 (점수 40)</option>
+                <option value="high">⚡ 높음 (점수 30)</option>
+                <option value="normal" selected>☕ 보통 (점수 20)</option>
+                <option value="low">🌱 낮음 (점수 10)</option>
+              </select>
+
+              <!-- Due Date -->
+              <div class="flex items-center gap-1 bg-slate-900/80 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-300">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                <input type="date" id="taskDueDate" class="bg-transparent text-xs text-slate-200 focus:outline-none">
+              </div>
+
+              <!-- Estimated Minutes -->
+              <select id="taskEstimate" class="bg-slate-900/80 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-300 focus:outline-none">
+                <option value="15">⏱️ 15분</option>
+                <option value="30" selected>⏱️ 30분</option>
+                <option value="60">⏱️ 1시간</option>
+                <option value="120">⏱️ 2시간</option>
+              </select>
+            </div>
+          </form>
+        </div>
+
+        <!-- Task List Filters & Header -->
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <span>할 일 목록</span>
+            <span class="text-[11px] text-indigo-400 font-normal">자동 우선순위 정렬 중</span>
+          </div>
+          <div class="flex items-center gap-1 text-xs">
+            <button onclick="setTaskFilter('all')" id="filter-all" class="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-400 font-medium">전체</button>
+            <button onclick="setTaskFilter('active')" id="filter-active" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200">진행 중</button>
+            <button onclick="setTaskFilter('done')" id="filter-done" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200">완료됨</button>
+          </div>
+        </div>
+
+        <!-- Task Cards Container -->
+        <div id="tasksList" class="space-y-2.5">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Right: Quick Scratchpad / Memo (1 col) -->
+      <div class="space-y-4">
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col h-full min-h-[460px]">
+          <div class="flex items-center justify-between mb-3 pb-3 border-b border-slate-700/40">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sticky-note" class="w-4 h-4 text-amber-400"></i>
+              <h3 class="text-sm font-bold text-white">오늘의 메모장</h3>
+            </div>
+            <span id="notesStatus" class="text-[11px] text-slate-400">자동 저장됨</span>
+          </div>
+          <textarea id="notesArea" oninput="saveNotesDebounced()" placeholder="컴퓨터를 켜고 떠오른 생각, 링크, 참고사항을 메모하세요. 스마트폰에서도 그대로 조회/수정할 수 있습니다." class="flex-1 w-full bg-slate-900/60 border border-slate-700/60 rounded-xl p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 resize-none font-sans leading-relaxed"></textarea>
+          <div class="flex items-center justify-between mt-3 text-[11px] text-slate-500">
+            <span>실시간 자동 저장</span>
+            <button onclick="copyNotes()" class="hover:text-slate-300 flex items-center gap-1 transition-colors">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>메모 복사</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: 스마트 파일 정리 -->
+    <section id="tab-organize" class="tab-content hidden space-y-6">
+      
+      <!-- Top Overview Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Card 1: Pending Stats -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+            <i data-lucide="files" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400">정리 대기 파일</div>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="statPendingCount" class="text-2xl font-bold text-white">0</span>
+              <span class="text-xs text-slate-400">개</span>
+              <span id="statPendingSize" class="text-xs text-indigo-400 font-semibold">(0 KB)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Main Action -->
+        <div class="bg-gradient-to-br from-indigo-900/50 to-slate-800/80 border border-indigo-500/30 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs text-indigo-300 font-medium">안전 원클릭 정리</div>
+            <div class="text-sm font-bold text-white mt-0.5">체크된 파일 자동 분류</div>
+          </div>
+          <button onclick="runOrganize()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-indigo-600/30 active:scale-95 transition-all">
+            <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+            <span>지금 정리하기</span>
+          </button>
+        </div>
+
+        <!-- Card 3: Undo & Open Folder -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400">정리 폴더 & 복구</div>
+            <div class="text-sm font-bold text-white mt-0.5">정리함 열기 / 실행 취소</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="undoOrganize()" title="방금 정리 되돌리기" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95">
+              <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+              <span>되돌리기</span>
+            </button>
+            <button onclick="openOrganizedFolder()" title="정리된 폴더 열기" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95">
+              <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+              <span>폴더 열기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- File Preview Table with Checkboxes & Safety -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i>
+            <h3 class="text-sm font-bold text-white">정리 대상 파일 미리보기 (선택 가능)</h3>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+              <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllFiles(this.checked)" checked class="rounded bg-slate-900 border-slate-700 text-indigo-600">
+              <span>전체 선택</span>
+            </label>
+            <button onclick="fetchScanFiles()" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>새로고침</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-[380px]">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/60 text-slate-400 font-semibold sticky top-0">
+              <tr>
+                <th class="py-3 px-4 w-10 text-center">선택</th>
+                <th class="py-3 px-4">파일명</th>
+                <th class="py-3 px-4">현재 위치</th>
+                <th class="py-3 px-4">분류 예정</th>
+                <th class="py-3 px-4 text-right">크기</th>
+                <th class="py-3 px-4 text-center">작업</th>
+              </tr>
+            </thead>
+            <tbody id="scanTableBody" class="divide-y divide-slate-700/40 text-slate-300">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Batch History with Individual Undo -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
+            <h3 class="text-sm font-bold text-white">정리 이력 및 배치 단위 복구</h3>
+          </div>
+        </div>
+        <div id="historyList" class="space-y-2.5 text-xs text-slate-300">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: 설정 및 스마트폰 연동 -->
+    <section id="tab-settings" class="tab-content hidden space-y-6">
+      
+      <!-- 1. Smartphone Pairing Card -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700/40">
+          <div class="flex items-center gap-2">
+            <i data-lucide="smartphone" class="w-5 h-5 text-emerald-400"></i>
+            <div>
+              <h3 class="text-sm font-bold text-white">스마트폰 연동 관리</h3>
+              <p class="text-xs text-slate-400">같은 Wi-Fi 내 스마트폰에서 언제든 할 일과 메모를 관리할 수 있습니다.</p>
+            </div>
+          </div>
+          <button onclick="openPhoneModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md">
+            <i data-lucide="qr-code" class="w-4 h-4"></i>
+            <span>QR 코드 열기</span>
+          </button>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <span>연결된 스마트폰 기기 목록</span>
+              <span id="devicesCountLabel" class="text-[11px] text-emerald-400 font-normal font-mono">0대</span>
+            </h4>
+            <button onclick="fetchSettings(); showToast('기기 목록을 새로고침했습니다.');" class="text-slate-400 hover:text-white p-1 rounded transition-colors text-xs flex items-center gap-1" title="기기 목록 새로고침">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>새로고침</span>
+            </button>
+          </div>
+          <div id="connectedDevicesList" class="space-y-2 text-xs">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Windows Boot Automation -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center gap-2 pb-3 border-b border-slate-700/40">
+          <i data-lucide="power" class="w-4 h-4 text-indigo-400"></i>
+          <h3 class="text-sm font-bold text-white">윈도우 시작 및 부팅 자동화</h3>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Toggle: Auto-startup -->
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-slate-700/40">
+            <div>
+              <div class="text-sm font-semibold text-slate-200">컴퓨터 부팅 시 DeskPilot 자동 실행</div>
+              <div class="text-xs text-slate-400 mt-0.5">Windows 시작프로그램에 등록되어 부팅 시 백그라운드로 자동 실행됩니다.</div>
+            </div>
+            <button onclick="toggleStartup()" id="settingsStartupBtn" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-700">
+              <span id="settingsStartupDot" class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out translate-x-0"></span>
+            </button>
+          </div>
+
+          <!-- Toggle: Auto clean on boot -->
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-slate-700/40">
+            <div>
+              <div class="text-sm font-semibold text-slate-200">부팅 즉시 파일 자동 정리 수행 (기본: OFF)</div>
+              <div class="text-xs text-slate-400 mt-0.5">체크 시 컴퓨터가 켜지면 바탕화면/다운로드 폴더의 파일을 자동으로 분류하여 정리합니다.</div>
+            </div>
+            <input type="checkbox" id="cfgCleanOnStartup" onchange="saveSettings()" class="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700">
+          </div>
+
+          <!-- Toggle: Periodic clean -->
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-slate-700/40">
+            <div>
+              <div class="text-sm font-semibold text-slate-200">주기적 백그라운드 자동 정리</div>
+              <div class="text-xs text-slate-400 mt-0.5">컴퓨터 사용 중에도 지정된 간격마다 자동으로 파일을 분류합니다.</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="cfgInterval" onchange="saveSettings()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none">
+                <option value="15">15분마다</option>
+                <option value="30">30분마다</option>
+                <option value="60">1시간마다</option>
+              </select>
+              <input type="checkbox" id="cfgPeriodic" onchange="saveSettings()" class="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Target Folders & Destination -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center gap-2 pb-3 border-b border-slate-700/40">
+          <i data-lucide="folders" class="w-4 h-4 text-indigo-400"></i>
+          <h3 class="text-sm font-bold text-white">정리 위치 및 폴더 설정</h3>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">정리된 파일이 보관될 기본 폴더 (안전 기본값: 문서 폴더)</label>
+            <div class="flex gap-2">
+              <input type="text" id="cfgOrganizedDir" class="flex-1 bg-slate-900/80 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-200 text-xs focus:outline-none" readonly>
+              <button onclick="openOrganizedFolder()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1">
+                <i data-lucide="folder" class="w-3.5 h-3.5"></i>
+                <span>폴더 열기</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <span class="block text-slate-300 font-semibold mb-2">자동 감시 폴더 대상</span>
+            <div class="space-y-2" id="watchFoldersContainer">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Diagnostic & Logs -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+        <div>
+          <h4 class="text-sm font-bold text-white">진단 및 시스템 로그</h4>
+          <p class="text-xs text-slate-400 mt-0.5">%APPDATA%\DeskPilot 경로에 안전하게 보관 중입니다.</p>
+        </div>
+        <button onclick="openLogsFolder()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          <span>로그 폴더 열기</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- TAB 4: 기기 간 파일 공유 (QuickDrop) -->
+    <section id="tab-share" class="tab-content hidden space-y-5">
+      <!-- Top Card: File Drop / Upload -->
+      <div class="bg-gradient-to-br from-indigo-900/40 via-slate-800/80 to-slate-900/90 border border-indigo-500/30 rounded-3xl p-6 shadow-xl text-center">
+        <div class="max-w-md mx-auto space-y-3">
+          <div class="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto shadow-md">
+            <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-white">컴퓨터 ↔ 스마트폰 실시간 파일 전송</h3>
+            <p class="text-xs text-slate-400 mt-1">사진, 문서, 영상 등 어떤 파일이든 선택하거나 드래그하여 즉시 주고받을 수 있습니다.</p>
+          </div>
+
+          <!-- Hidden Input for file selection -->
+          <input type="file" id="sharedFileInput" multiple onchange="handleSharedFileSelect(this.files)" class="hidden">
+
+          <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button onclick="document.getElementById('sharedFileInput').click()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-2xl text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 active:scale-95 transition-all">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>파일 선택하여 전송하기</span>
+            </button>
+            <button onclick="openSharedFolder()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-4 py-3 rounded-2xl text-xs sm:text-sm flex items-center gap-1.5 border border-slate-700 transition-all">
+              <i data-lucide="folder" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">PC 공유 폴더 열기</span>
+            </button>
+          </div>
+
+          <!-- Drag & drop dropzone border -->
+          <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500/60 rounded-2xl p-4 transition-colors text-xs text-slate-400 mt-2 hidden sm:block">
+            마우스로 파일을 여기에 끌어다 놓으셔도 전송됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Progress Bar (hidden by default) -->
+      <div id="uploadProgressContainer" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4">
+        <div class="flex items-center justify-between text-xs text-slate-300 mb-1.5">
+          <span id="uploadFileName">파일명 전송 중...</span>
+          <span id="uploadPercent">0%</span>
+        </div>
+        <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div id="uploadProgressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Shared Files Table & List -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="files" class="w-4 h-4 text-emerald-400"></i>
+            <h3 class="text-sm font-bold text-white">공유 및 전송된 파일 목록</h3>
+            <span id="sharedFilesCountBadge" class="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">0개</span>
+          </div>
+          <button onclick="fetchSharedFiles()" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>새로고침</span>
+          </button>
+        </div>
+
+        <div id="sharedFilesList" class="divide-y divide-slate-700/40 text-xs text-slate-300">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- App Standalone Distribution Box (PC only) -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-sm hidden sm:flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <i data-lucide="package" class="w-4 h-4 text-indigo-400"></i>
+            <h4 class="text-sm font-bold text-white">DeskPilot 프로그램 자체 배포 (독립 실행 파일 .exe)</h4>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">다른 컴퓨터에서도 파이썬 설치 없이 더블클릭만으로 실행되는 exe 파일 패키지를 생성합니다.</p>
+        </div>
+        <div class="text-right">
+          <span class="text-xs font-mono text-indigo-300 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 inline-block font-bold">
+            build_exe.bat 실행
+          </span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Tab Navigation (Fixed) -->
+  <nav id="mobileBottomNav" class="hidden sm:hidden fixed bottom-0 left-0 right-0 bg-slate-800/95 backdrop-blur border-t border-slate-700/80 z-50 flex items-center justify-around py-2 px-3">
+    <button onclick="switchTab('tasks')" id="mobileNav-tasks" class="flex flex-col items-center gap-1 text-indigo-400 font-medium">
+      <i data-lucide="check-square" class="w-5 h-5"></i>
+      <span class="text-[11px]">할 일 & 메모</span>
+    </button>
+    <button onclick="switchTab('share')" id="mobileNav-share" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="send" class="w-5 h-5"></i>
+      <span class="text-[11px]">파일 전송</span>
+    </button>
+    <button onclick="switchTab('organize')" id="mobileNav-organize" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="folder-sync" class="w-5 h-5"></i>
+      <span class="text-[11px]">정리 현황</span>
+    </button>
+    <button onclick="switchTab('settings')" id="mobileNav-settings" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+      <i data-lucide="settings" class="w-5 h-5"></i>
+      <span class="text-[11px]">연동 관리</span>
+    </button>
+  </nav>
+
+  <!-- MODAL 1: Smartphone Pairing QR Modal (PC side) -->
+  <div id="phoneModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-center">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+        <div class="flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-5 h-5 text-emerald-400"></i>
+          <h3 class="text-base font-bold text-white">스마트폰 연동</h3>
+        </div>
+        <button onclick="closePhoneModal()" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        스마트폰 기본 카메라로 아래 QR 코드를 스캔하세요.<br>
+        같은 Wi-Fi나 LTE/5G 외부 네트워크에서도 연동됩니다.
+      </p>
+
+      <!-- External Network (LTE / 5G) Quick Tunnel Toggle -->
+      <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-3 text-left flex items-center justify-between">
+        <div>
+          <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+            <i data-lucide="globe" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>외부 네트워크(LTE/5G/외출) 접속</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-0.5">
+            Wi-Fi가 달라도 암호화된 공용 HTTPS 터널로 어디서든 연결됩니다.
+          </div>
+        </div>
+        <button id="tunnelToggleBtn" onclick="toggleCloudflareTunnel()" class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 bg-slate-700">
+          <span id="tunnelToggleDot" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 translate-x-0"></span>
+        </button>
+      </div>
+
+      <!-- Vector SVG QR Code Container -->
+      <div class="bg-white p-4 rounded-2xl inline-block shadow-inner mx-auto my-2 w-56 h-56 flex items-center justify-center">
+        <div id="qrCodeContainer" class="w-48 h-48 flex items-center justify-center">
+          <span class="text-xs text-slate-500">QR 코드 로딩 중...</span>
+        </div>
+      </div>
+
+      <div id="pairingStatusLive" class="text-xs text-emerald-400 font-semibold hidden flex items-center justify-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-3">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        <span id="pairingStatusLiveText">새 스마트폰 연동 완료!</span>
+      </div>
+
+      <!-- Pairing Code & Direct URL -->
+      <div class="bg-slate-900/60 rounded-xl p-3 border border-slate-700/60 text-xs space-y-1">
+        <div class="text-slate-400">스마트폰 직접 접속 주소:</div>
+        <div id="pairingUrlText" class="font-mono text-indigo-300 font-semibold select-all break-all">http://...</div>
+        <div class="text-slate-400 pt-1">인증 코드: <span id="pairingCodeText" class="text-amber-400 font-mono font-bold text-sm">------</span></div>
+      </div>
+
+      <div class="text-[11px] text-slate-400">
+        💡 한 번 연동하면 PC나 폰을 껐다 켜도 다시 QR을 찍을 필요 없이 자동으로 연결됩니다.
+      </div>
+
+      <button onclick="closePhoneModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2.5 rounded-xl text-xs">
+        닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Smartphone Confirmation Modal (Mobile side: "이 컴퓨터가 맞습니까?") -->
+  <div id="phoneConfirmModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-indigo-500/40 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+        <i data-lucide="monitor" class="w-8 h-8"></i>
+      </div>
+
+      <div>
+        <h3 class="text-lg font-bold text-white">스마트폰 연동 확인</h3>
+        <p class="text-xs text-slate-400 mt-1">연결하려는 컴퓨터가 맞는지 확인해 주세요.</p>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-700 rounded-2xl p-4 text-left space-y-2">
+        <div class="text-xs text-slate-400">연결 대상 컴퓨터:</div>
+        <div class="text-base font-bold text-indigo-300 flex items-center gap-2">
+          <i data-lucide="laptop" class="w-4 h-4 text-indigo-400"></i>
+          <span id="confirmHostName">DESKTOP-PC</span>
+        </div>
+        <div id="confirmIpAddress" class="text-xs text-slate-400 font-mono">IP: 192.168.0.x</div>
+      </div>
+
+      <p class="text-xs font-semibold text-emerald-400">
+        "이 컴퓨터가 맞습니까?"
+      </p>
+
+      <div class="flex gap-3 pt-2">
+        <button onclick="cancelPairing()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-3 rounded-xl text-xs font-semibold">
+          취소
+        </button>
+        <button onclick="confirmPairing()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30">
+          예, 연동하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Onboarding First-run Wizard -->
+  <div id="wizardModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 pb-3 border-b border-slate-700/60">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">DeskPilot에 오신 것을 환영합니다!</h3>
+          <p class="text-xs text-slate-400">안전하고 똑똑한 데스크탑 비서</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <div class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 font-medium">
+          🛡️ <strong>안전 원칙:</strong> 사용자의 명시적인 동의 없이 어떤 파일도 임의로 이동하거나 정리하지 않습니다. (자동 정리 기본값: OFF)
+        </div>
+        <div>
+          <strong>1. 정리 대상 폴더:</strong> 바탕화면, 다운로드 폴더
+        </div>
+        <div>
+          <strong>2. 안전 보관 위치:</strong> <code>문서\DeskPilot\정리된_파일</code>
+        </div>
+        <div>
+          <strong>3. 바로가기 보호:</strong> 바탕화면 바로가기(.lnk)나 프로그램은 절대 건드리지 않습니다.
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button onclick="completeWizard()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs shadow-md">
+          동의하고 시작하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

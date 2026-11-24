@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Chrome profile / browser caches
+.chrome_profile/
+
+# Distribution / packaging
+dist/
+build/
+*.spec
+
+# Logs and databases and backups
+*.log
+*.tmp
+*.bak
+*.v1.bak
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+

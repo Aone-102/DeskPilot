@@ -1,0 +1,79 @@
+[
+  {
+    "batch_id": "cba9227d-6736-4091-bcf7-d2416f30afac",
+    "timestamp": "2026-11-24 10:02:18",
+    "count": 1,
+    "files": [
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\DeskPilot_v2_PRD.md",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\기타\\DeskPilot_v2_PRD.md",
+        "name": "DeskPilot_v2_PRD.md",
+        "category": "기타",
+        "size": 23302
+      }
+    ]
+  },
+  {
+    "batch_id": "b6e5f4cd-7845-45aa-8b25-dfff3cac718b",
+    "timestamp": "2026-11-24 09:27:15",
+    "count": 3,
+    "files": [
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\lghub_installer.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\lghub_installer.exe",
+        "name": "lghub_installer.exe",
+        "category": "설치파일",
+        "size": 70955160
+      },
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\schedule-app.zip",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\압축파일\\schedule-app.zip",
+        "name": "schedule-app.zip",
+        "category": "압축파일",
+        "size": 18428
+      },
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\VC_redist.x64.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\VC_redist.x64.exe",
+        "name": "VC_redist.x64.exe",
+        "category": "설치파일",
+        "size": 18863624
+      }
+    ]
+  },
+  {
+    "batch_id": "a2c27254-f6e7-4be6-bb6b-fec56283fece",
+    "timestamp": "2026-11-23 17:01:05",
+    "count": 4,
+    "files": [
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\Antigravity IDE.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\Antigravity IDE.exe",
+        "name": "Antigravity IDE.exe",
+        "category": "설치파일",
+        "size": 199656240
+      },
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\ChromeSetup.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\ChromeSetup.exe",
+        "name": "ChromeSetup.exe",
+        "category": "설치파일",
+        "size": 13036976
+      },
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\Claude Setup.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\Claude Setup.exe",
+        "name": "Claude Setup.exe",
+        "category": "설치파일",
+        "size": 7588512
+      },
+      {
+        "from": "C:\\Users\\cheon\\Downloads\\KakaoTalk_Setup.exe",
+        "to": "C:\\Users\\cheon\\Desktop\\정리된_파일\\설치파일\\KakaoTalk_Setup.exe",
+        "name": "KakaoTalk_Setup.exe",
+        "category": "설치파일",
+        "size": 90836056
+      }
+    ]
+  }
+]
