@@ -90,6 +90,7 @@ DeskPilot/
 ├── installer.py        # 원클릭 자동 설치 프로그램(Setup GUI & 바로가기/레지스트리 등록 엔진)
 ├── build_installer.bat # 단일 자동 설치 파일(DeskPilot-Setup.exe) 원클릭 빌드 스크립트
 ├── build_exe.bat       # 파이썬 없이 더블클릭만으로 실행 가능한 독립 실행 파일(.exe) 빌드 스크립트
+├── git_push.bat        # GitHub 원클릭 자동 커밋 & 푸시 동기화 배치 파일
 ├── start.bat           # 일반 콘솔 실행용 배치 파일
 ├── run.vbs             # 윈도우 부팅 시 검은 창 없이 백그라운드로 자동 실행하기 위한 VBScript
 └── README.md           # 본 안내 문서
